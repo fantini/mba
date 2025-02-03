@@ -3,9 +3,12 @@
 # %% Imports
 from opensearchpy import OpenSearch
 import time
+import os
 
 # %% Configuracao do client
 client = OpenSearch(
+    hosts=[{"host": os.environ.get("OS_HOST"), "port": os.environ.get("OS_PORT")}],
+    http_auth=(os.environ.get("OS_USER"), os.environ.get("OS_PASSWORD")),
     http_compress=True,
     use_ssl=True,
     verify_certs=False
