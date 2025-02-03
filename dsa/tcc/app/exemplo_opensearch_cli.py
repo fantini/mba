@@ -11,16 +11,22 @@ client = OpenSearch(
     verify_certs=False
 )
 
-# %% Consulta
+# %% Consultaqu
 index_name = "kong-stream-v1"
 
 query = {
-    "size": 10000,
-    "sort": [{"@timestamp": {"order": "desc"}}],
+    "size": 0, 
     "query": {
         "range": {
             "@timestamp": {
-                "gt": "now-5s",
+                "gt": "now-5s"
+            }
+        }
+    },
+    "aggs": {
+        "latency": {
+            "avg": {
+                "field": "latencies.kong"
             }
         }
     }
@@ -35,12 +41,12 @@ while True:
         response = client.search(index=index_name, body=query)
 
         # Processa os resultados
-        hits = response.get("hits", {}).get("hits", [])
+        hits = response.get("hits", {})
+        aggs = response.get("aggregations", {})
 
-        if hits:
-            print("Novos documentos encontrados:", len(hits))
-            for hit in hits:
-                print(hit["_source"]["latencies.kong"])
+        if hits["total"]["value"]:
+            print("Total de documentos:", hits["total"]["value"])
+            print("Média de latência:", aggs["latency"]["value"])
         else:
             print("Nenhum novo documento encontrado.")
 
