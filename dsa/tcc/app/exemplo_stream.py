@@ -22,7 +22,7 @@ sin[235:255] = 80
 # %% Hiperparametros
 
 num_trees = 40
-shingle_size = 40
+shingle_size = 8
 tree_size = 256
 
 # %% Criando a RRCF
