@@ -4,8 +4,12 @@
 from opensearchpy import OpenSearch
 import time
 import os
+import warnings
+import urllib3
 
 # %% Configuracao do client
+warnings.filterwarnings("ignore")
+
 client = OpenSearch(
     hosts=[{"host": os.environ.get("OS_HOST"), "port": os.environ.get("OS_PORT")}],
     http_auth=(os.environ.get("OS_USER"), os.environ.get("OS_PASSWORD")),

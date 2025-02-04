@@ -57,7 +57,7 @@ for index, point in enumerate(points):
         if not index in avg_codisp:
             avg_codisp[index] = 0
         avg_codisp[index] += new_codisp / num_trees
-
+    print(avg_codisp[index])
 # %% Plotando os resultados
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
