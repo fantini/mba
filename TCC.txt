@@ -1,0 +1,129 @@
+**Implementação de Algoritmo(s) de Machine Learning**
+
+Neste estudo, foi desenvolvido um algoritmo de Machine Learning para a detecção de anomalias em fluxos de dados utilizando a técnica de Random Cut Forest (RRCF). O dataset utilizado continha medições contínuas de latência provenientes de uma fonte secundária, garantindo a confidencialidade das informações sensíveis.
+
+**Descrição do Dataset**
+
+O conjunto de dados utilizado consistiu em medições de latência agregadas periodicamente. Cada ponto de dados representava a média das latências registradas em um intervalo de tempo específico. O dataset foi processado para remoção de valores ausentes e aplicação de técnicas de shingling para criar sequências temporais.
+
+**Desenvolvimento do Algoritmo**
+
+Para a implementação do algoritmo, foi utilizada a linguagem Python e as bibliotecas OpenSearch, RRCF e Matplotlib. O algoritmo foi projetado para buscar dados em tempo real, aplicar o modelo de detecção de anomalias e gerar alertas conforme necessário.
+
+1. **Importação das bibliotecas**
+   ```python
+   import threading
+   from opensearchpy import OpenSearch
+   import time
+   import os
+   import rrcf
+   import numpy as np
+   import matplotlib.pyplot as plt
+   from collections import deque
+   ```
+
+2. **Configuração do OpenSearch e parâmetros do modelo**
+   ```python
+   OS_HOST = os.environ.get("OS_HOST")
+   OS_PORT = os.environ.get("OS_PORT")
+   OS_USER = os.environ.get("OS_USER")
+   OS_PASSWORD = os.environ.get("OS_PASSWORD")
+   INDEX_NAME = "kong-stream-v1"
+   
+   NUM_TREES = 40
+   SHINGLE_SIZE = 16
+   TREE_SIZE = 256
+   THRESHOLD = 10
+   ```
+
+3. **Criação do cliente OpenSearch e busca de dados**
+   ```python
+   def create_os_client():
+       client = OpenSearch(
+           hosts=[{"host": OS_HOST, "port": OS_PORT}],
+           http_auth=(OS_USER, OS_PASSWORD),
+           use_ssl=True,
+           verify_certs=False,
+           http_compress=True,
+       )
+       return client
+
+   def fetch_data(client):
+       query = {
+           "size": 0,
+           "query": {"range": {"@timestamp": {"gt": "now-5s"}}},
+           "aggs": {"latency": {"avg": {"field": "latencies.kong"}}},
+       }
+       try:
+           response = client.search(index=INDEX_NAME, body=query)
+           aggr = response.get("aggregations", {})
+           if aggr and aggr.get("latency"):
+               return aggr["latency"]["value"]
+           return None
+       except Exception as e:
+           print(f"Erro ao consultar o OpenSearch: {e}")
+           return None
+   ```
+
+4. **Detecção de Anomalias com RRCF**
+   ```python
+   def detect_anomalies(data_point, forest, global_index):
+       points_buffer.append(data_point)
+       if len(points_buffer) < TREE_SIZE:
+           return 0, []
+
+       if len(forest[0].leaves) > TREE_SIZE:
+           old_index = global_index - TREE_SIZE
+           for tree in forest:
+               if old_index in tree.leaves:
+                   tree.forget_point(old_index)
+
+       avg_codisp = 0
+       codisp_values = []
+       for tree in forest:
+           tree.insert_point(data_point, index=global_index)
+           codisp = tree.codisp(global_index)
+           codisp_values.append(codisp)
+           avg_codisp += codisp
+
+       avg_codisp /= len(forest)
+       return avg_codisp, codisp_values
+   ```
+
+5. **Execução do Algoritmo**
+   ```python
+   client = create_os_client()
+   forest = [rrcf.RCTree() for _ in range(NUM_TREES)]
+   shingle = deque(maxlen=SHINGLE_SIZE)
+   points_buffer = deque(maxlen=TREE_SIZE + SHINGLE_SIZE)
+   global_index = 0
+
+   while True:
+       data_point = fetch_data(client)
+       if data_point is not None:
+           shingle.append(data_point)
+           if len(shingle) == SHINGLE_SIZE:
+               data_point_shingle = np.array(list(shingle))
+               score, codisp_values = detect_anomalies(
+                   data_point_shingle, forest, global_index
+               )
+
+               print(f"Data point: {data_point}, CoDisp: {score}, CoDisp values: {codisp_values}")
+               if score > THRESHOLD:
+                   print(f"⚠️ Anomalia detectada! Pontuação: {score:.2f}")
+               global_index += 1
+       else:
+           print("Nenhum dado encontrado.")
+       time.sleep(5)
+   ```
+
+**Resultados e Discussão**
+
+Os resultados obtidos com a implementação do algoritmo RRCF demonstraram a eficácia do método na detecção de anomalias em tempo real. A pontuação de CoDisp foi utilizada como métrica principal para identificar padrões incomuns nos dados de latência.
+
+A análise dos valores de CoDisp revelou que momentos de alta variabilidade na latência estavam correlacionados com a detecção de anomalias. Caso um limiar menor fosse utilizado, mais anomalias seriam detectadas, embora com um maior número de falsos positivos.
+
+A principal vantagem do modelo foi sua capacidade de operar em tempo real e de se adaptar a variações nos dados. No entanto, a necessidade de ajustes manuais nos hiperparâmetros, como número de árvores e tamanho do shingle, representa um desafio adicional.
+
+Para trabalhos futuros, recomenda-se a incorporação de técnicas de otimização automatizada de hiperparâmetros e a experimentação com modelos alternativos, como Isolation Forest e Autoencoders.
+
