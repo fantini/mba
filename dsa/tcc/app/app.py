@@ -115,7 +115,7 @@ def update_forest(point):
 
     return avg_codisp
 
-def update_graph(frame):
+def update_chart(frame):
     """Atualiza o gráfico em tempo real."""
     if len(points_buffer) == 0 or len(anomaly_scores) == 0:
         return line, anomaly_points, line_codisp
@@ -156,8 +156,8 @@ def fetch_and_process():
         # Aguarda o próximo intervalo
         time.sleep(OS_SEARCH_INTERVAL)
 
-def create_graphic():
-    ani = FuncAnimation(fig, update_graph, interval=1000)
+def create_chart():
+    ani = FuncAnimation(fig, update_chart, interval=1000)
     plt.legend()
     plt.show()
 
@@ -181,5 +181,5 @@ line_codisp, = ax1.plot([], [], label="CoDisp", color="red")
 # %% _Main_
 data_thread = threading.Thread(target=fetch_and_process, daemon=True)
 data_thread.start()
-create_graphic()
+create_chart()
 
